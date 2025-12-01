@@ -2172,7 +2172,8 @@ invalid, schema restored to validity, instance made invalid</documentation></ann
       <instanceTest name="addB161.i">
          <instanceDocument xlink:href="../msData/additional/test93490_7.xml"/>
          <expected validity="invalid"/>
-         <current status="accepted" date="2006-07-16"/>
+         <current bugzilla="https://github.com/w3c/xsdtests/issues/10" status="queried" date="2025-12-01"/>
+         <prior status="accepted" date="2006-07-16"/>
       </instanceTest>
    </testGroup>
    <testGroup name="addB162">
@@ -2206,7 +2207,8 @@ invalid, schema restored to validity, instance made invalid</documentation></ann
       <instanceTest name="addB164.i">
          <instanceDocument xlink:href="../msData/additional/test93490_10.xml"/>
          <expected validity="invalid"/>
-         <current status="accepted" date="2006-07-16"/>
+         <current bugzilla="https://github.com/w3c/xsdtests/issues/10" status="queried" date="2025-12-01"/>
+         <prior status="accepted" date="2006-07-16"/>
       </instanceTest>
    </testGroup>
    <testGroup name="addB165">
