@@ -16,7 +16,7 @@
     <xs:complexType>
        <xs:choice>
           <xs:element name="para" maxOccurs="unbounded" type="structuredDate"/>
-          <xs:element name="bezzle" type="xs:NOTATION"/>
+          <xs:element name="bezzle" type="notaFooBar"/>
        </xs:choice>
     </xs:complexType>
   </xs:element>
