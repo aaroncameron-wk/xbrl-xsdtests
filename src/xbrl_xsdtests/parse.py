@@ -58,6 +58,34 @@ def _local_name(element: etree._Element) -> str:
     return etree.QName(element).localname
 
 
+_XSD_1_1 = "1.1"
+
+
+def _select_expected(instance_test: etree._Element) -> etree._Element | None:
+    """Pick the first ``<expected>`` not tagged ``version="1.1"``.
+
+    Some testGroups (e.g. Microsoft's ``DataTypes_w3c``) carry multiple
+    version-tagged ``<expected>`` siblings whose outcome differs by XSD version,
+    e.g. ``float018_1917.i``::
+
+        <expected validity="valid" version="1.1"/>
+        <expected validity="invalid" version="1.0"/>
+
+    This generator only targets XSD 1.0 outcomes (v1 non-goal), so a 1.1-tagged
+    outcome is skipped in favor of the next sibling. Note ``version`` is
+    overloaded elsewhere in the corpus for unrelated dimensions (e.g. the
+    Microsoft regex tests use ``version="Unicode_4.0.0"``/``"Unicode_6.0.0"`` for
+    the Unicode database version) — only the literal ``"1.1"`` tag is treated as
+    an XSD-version marker; anything else is picked by document
+    order.
+    """
+    for candidate in instance_test.findall(f"{{{TS_NS}}}expected"):
+        if candidate.get("version") == _XSD_1_1:
+            continue
+        return candidate
+    return None
+
+
 class TestSetParser:
     """Streams a testSet member, yielding one ``InstanceTestRef`` per ``instanceTest``.
 
@@ -109,7 +137,7 @@ class TestSetParser:
     ) -> InstanceTestRef | None:
         document = instance_test.find(f"{{{TS_NS}}}instanceDocument")
         href = document.get(f"{{{XLINK_NS}}}href") if document is not None else None
-        expected = instance_test.find(f"{{{TS_NS}}}expected")
+        expected = _select_expected(instance_test)
         validity = expected.get("validity") if expected is not None else None
         if not href or validity not in _VALIDITIES:
             return None

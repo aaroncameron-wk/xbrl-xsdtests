@@ -74,6 +74,23 @@ class TestHrefResolution:
         assert first.group.source.contributor == "NIST"
 
 
+class TestVersionedExpected:
+    def test_picks_outcome_matching_source_version(self, root: Path) -> None:
+        # float018_1917.i carries two version-tagged <expected> siblings:
+        #   <expected validity="valid" version="1.1"/>
+        #   <expected validity="invalid" version="1.0"/>
+        # The in-scope source is tagged xsd_version="1.0", so the 1.0 outcome
+        # (invalid) must be picked, not the first-in-document-order 1.1 one.
+        source = _by_source()["msMeta/DataTypes_w3c.xml"]
+        parser = TestSetParser(root)
+        ref = next(
+            r
+            for r in parser.iter_instance_tests(source)
+            if isinstance(r, InstanceTestRef) and r.name == "float018_1917.i"
+        )
+        assert ref.validity == "invalid"
+
+
 class TestSchemaTestOnly:
     def test_schema_only_groups_yield_skip_records(self, root: Path) -> None:
         # MS SimpleType has many schemaTest-only groups (stA001..).
