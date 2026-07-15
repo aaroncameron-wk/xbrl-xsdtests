@@ -1,7 +1,7 @@
 """
 See COPYRIGHT.md for copyright information.
 
-TestSetParser, SchemaExtractor, InstanceExtractor (lxml-based).
+TestSetParser, SchemaExtractor, InstanceExtractor (stdlib ElementTree-based).
 
 The parsers are namespace-aware (not prefix-based): XSTS schema documents use a
 mix of conventions (some bind the XSD namespace to ``xs:``, others make it the
@@ -14,7 +14,8 @@ import posixpath
 from collections.abc import Iterator
 from pathlib import Path
 
-from lxml import etree
+from xbrl_xsdtests import xmlutil as etree
+from xbrl_xsdtests.xmlutil import nsmap
 
 from xbrl_xsdtests import typemap
 from xbrl_xsdtests.model import (
@@ -46,22 +47,23 @@ def _resolve_member(base_member: str, href: str) -> str:
     return posixpath.normpath(posixpath.join(posixpath.dirname(base_member), href))
 
 
-def _resolve_qname(element: etree._Element, qname: str) -> tuple[str | None, str]:
+def _resolve_qname(element: etree.Element, qname: str) -> tuple[str | None, str]:
     """Resolve a possibly-prefixed QName string against an element's namespace map."""
+    element_nsmap = nsmap(element)
     if ":" in qname:
         prefix, local = qname.split(":", 1)
-        return element.nsmap.get(prefix), local
-    return element.nsmap.get(None), qname
+        return element_nsmap.get(prefix), local
+    return element_nsmap.get(None), qname
 
 
-def _local_name(element: etree._Element) -> str:
-    return etree.QName(element).localname
+def _local_name(element: etree.Element) -> str:
+    return etree.localname(element)
 
 
 _XSD_1_1 = "1.1"
 
 
-def _select_expected(instance_test: etree._Element) -> etree._Element | None:
+def _select_expected(instance_test: etree.Element) -> etree.Element | None:
     """Pick the first ``<expected>`` not tagged ``version="1.1"``.
 
     Some testGroups (e.g. Microsoft's ``DataTypes_w3c``) carry multiple
@@ -104,7 +106,7 @@ class TestSetParser:
                 yield from self._handle_group(source, group)
                 group.clear()
 
-    def _handle_group(self, source: SourceSet, group: etree._Element) -> Iterator[InstanceTestRef | SkipRecord]:
+    def _handle_group(self, source: SourceSet, group: etree.Element) -> Iterator[InstanceTestRef | SkipRecord]:
         group_name = group.get("name") or ""
         schema_member = self._schema_member(source, group)
         group_ref = TestGroupRef(source=source, name=group_name, schema_member=schema_member or "")
@@ -123,7 +125,7 @@ class TestSetParser:
             if ref is not None:
                 yield ref
 
-    def _schema_member(self, source: SourceSet, group: etree._Element) -> str | None:
+    def _schema_member(self, source: SourceSet, group: etree.Element) -> str | None:
         document = group.find(f"{{{TS_NS}}}schemaTest/{{{TS_NS}}}schemaDocument")
         if document is None:
             document = group.find(f".//{{{TS_NS}}}schemaDocument")
@@ -133,7 +135,7 @@ class TestSetParser:
         return _resolve_member(source.member, href) if href else None
 
     def _instance_ref(
-        self, source: SourceSet, group_ref: TestGroupRef, instance_test: etree._Element
+        self, source: SourceSet, group_ref: TestGroupRef, instance_test: etree.Element
     ) -> InstanceTestRef | None:
         document = instance_test.find(f"{{{TS_NS}}}instanceDocument")
         href = document.get(f"{{{XLINK_NS}}}href") if document is not None else None
@@ -182,9 +184,9 @@ class SchemaExtractor:
         element_identities = self._element_identities(schema_root, simple_types)
         return self._classify(ref, target_identity, element_identities, simple_type, simple_types)
 
-    def _parse(self, schema_member: str) -> etree._Element:
+    def _parse(self, schema_member: str) -> etree.Element:
         with (self._root / schema_member).open("rb") as fh:
-            return etree.parse(fh).getroot()
+            return etree.parse(fh, track_ns=True).getroot()
 
     def _category_skip(self, ref: TestGroupRef) -> SkipRecord | None:
         member = ref.schema_member
@@ -195,8 +197,8 @@ class SchemaExtractor:
         return None
 
     def _target_simple_type(
-        self, root: etree._Element, simple_types: dict[str, etree._Element]
-    ) -> tuple[str | None, etree._Element] | None:
+        self, root: etree.Element, simple_types: dict[str, etree.Element]
+    ) -> tuple[str | None, etree.Element] | None:
         """Find the first element declaring a local simpleType-typed value.
 
         Returns ``(elementName, simpleType)`` — the element's ``name`` is the
@@ -215,7 +217,7 @@ class SchemaExtractor:
 
     @staticmethod
     def _element_identity(
-        element: etree._Element, simple_types: dict[str, etree._Element]
+        element: etree.Element, simple_types: dict[str, etree.Element]
     ) -> str | None:
         """Type-identity token of a value-bearing element declaration, else ``None``.
 
@@ -238,7 +240,7 @@ class SchemaExtractor:
 
     @classmethod
     def _element_identities(
-        cls, root: etree._Element, simple_types: dict[str, etree._Element]
+        cls, root: etree.Element, simple_types: dict[str, etree.Element]
     ) -> tuple[tuple[str, str], ...]:
         """Map every named element declaration (global and local) to its identity."""
         identities: dict[str, str] = {}
@@ -256,8 +258,8 @@ class SchemaExtractor:
         ref: TestGroupRef,
         target_identity: str,
         element_identities: tuple[tuple[str, str], ...],
-        simple_type: etree._Element,
-        simple_types: dict[str, etree._Element],
+        simple_type: etree.Element,
+        simple_types: dict[str, etree.Element],
     ) -> ExtractedType | SkipRecord:
         construct_skip = self._construct_skip(ref, simple_type)
         if construct_skip is not None:
@@ -276,7 +278,7 @@ class SchemaExtractor:
             return self._skip(ref, ReasonCode.NO_XBRLI_ITEMTYPE, f"xsd:{base_local} has no xbrli item type")
         return self._build_type(restriction, base_local, item_type, target_identity, element_identities)
 
-    def _construct_skip(self, ref: TestGroupRef, simple_type: etree._Element) -> SkipRecord | None:
+    def _construct_skip(self, ref: TestGroupRef, simple_type: etree.Element) -> SkipRecord | None:
         if simple_type.find(f"{{{XSD_NS}}}union") is not None:
             return self._skip(ref, ReasonCode.UNSUPPORTED_UNION, "xs:union construct")
         if simple_type.find(f"{{{XSD_NS}}}list") is not None:
@@ -284,7 +286,7 @@ class SchemaExtractor:
         return None
 
     def _non_builtin_base(
-        self, ref: TestGroupRef, base_local: str, simple_types: dict[str, etree._Element]
+        self, ref: TestGroupRef, base_local: str, simple_types: dict[str, etree.Element]
     ) -> SkipRecord:
         base_type = simple_types.get(base_local)
         if base_type is not None:
@@ -297,7 +299,7 @@ class SchemaExtractor:
 
     def _build_type(
         self,
-        restriction: etree._Element,
+        restriction: etree.Element,
         base_local: str,
         item_type: str,
         target_identity: str,
@@ -395,7 +397,7 @@ class InstanceExtractor:
             root = self._parse(ref.instance_member)
         except (etree.XMLSyntaxError, KeyError, OSError) as exc:
             return self._skip(ref, ReasonCode.UNPARSEABLE, f"failed to parse instance: {exc}")
-        target_leaves: list[etree._Element] = []
+        target_leaves: list[etree.Element] = []
         other_identities: set[str] = set()
         has_unrecognized = False
         for leaf in self._leaves(root):
@@ -425,7 +427,7 @@ class InstanceExtractor:
         return [self._value_of(leaf) for leaf in target_leaves]
 
     @staticmethod
-    def _leaves(root: etree._Element) -> Iterator[etree._Element]:
+    def _leaves(root: etree.Element) -> Iterator[etree.Element]:
         """Yield every element with no element children (comments/PIs ignored)."""
         for element in root.iter():
             if not isinstance(element.tag, str):
@@ -434,12 +436,13 @@ class InstanceExtractor:
                 yield element
 
     @staticmethod
-    def _value_of(element: etree._Element) -> ExtractedValue:
+    def _value_of(element: etree.Element) -> ExtractedValue:
         is_nil = element.get(f"{{{XSI_NS}}}nil") in _NIL_TRUE
         text = None if is_nil else (element.text if element.text is not None else "")
+        element_nsmap = nsmap(element)
         extra_nsmap = {
             prefix: uri
-            for prefix, uri in element.nsmap.items()
+            for prefix, uri in element_nsmap.items()
             if prefix is not None and uri != XSI_NS
         }
         return ExtractedValue(text=text, is_nil=is_nil, extra_nsmap=extra_nsmap)
@@ -454,6 +457,6 @@ class InstanceExtractor:
             detail=detail,
         )
 
-    def _parse(self, instance_member: str) -> etree._Element:
+    def _parse(self, instance_member: str) -> etree.Element:
         with (self._root / instance_member).open("rb") as fh:
-            return etree.parse(fh).getroot()
+            return etree.parse(fh, track_ns=True).getroot()

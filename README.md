@@ -71,7 +71,7 @@ be reduced to one concept and are skipped (`mixed-value-types`). The `xsd:import
 schema is pinned to its canonical URL and resolves from Arelle's bundled cache, so
 generation and validation are fully offline.
 
-The generator imports only `lxml` at runtime — Arelle is not required. The single
+The generator uses only the Python standard library at runtime — Arelle is not required. The single
 Arelle-coupled check is a separate pytest (see *Validation smoke test* below) and
 requires `pip install ".[dev]"`.
 

@@ -8,15 +8,12 @@ version = "0.1.0"
 description = "XBRL-flavored conformance suite generator from W3C XML Schema Test Suite (XSTS) datatype tests"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-dependencies = [
-    "lxml",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
     "pytest",
     "mypy",
-    "lxml-stubs",
     "arelle-release",
 ]
 

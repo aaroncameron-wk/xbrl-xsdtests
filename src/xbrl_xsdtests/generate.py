@@ -21,7 +21,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lxml import etree
+from xbrl_xsdtests import xmlutil as etree
 
 from xbrl_xsdtests import sources
 from xbrl_xsdtests.dedup import TaxonomyDedup

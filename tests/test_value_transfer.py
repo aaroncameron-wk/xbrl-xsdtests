@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from lxml import etree
+from xbrl_xsdtests import xmlutil as etree
 
 from conftest import REPO_ROOT
 from xbrl_xsdtests import sources

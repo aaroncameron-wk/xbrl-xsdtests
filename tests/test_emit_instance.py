@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from lxml import etree
+from xbrl_xsdtests import xmlutil as etree
 
 from xbrl_xsdtests.emit import (
     InstanceEmitter,

@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from lxml import etree
+from xbrl_xsdtests import xmlutil as etree
 
 from xbrl_xsdtests.model import (
     ExtractedType,
@@ -131,7 +131,7 @@ class TaxonomyEmitter:
     def emit(self, key: TypeKey, t: ExtractedType, out: Path) -> Path:
         gen_ns = gen_namespace(key)
         nsmap = {"xsd": XSD_NS, "xbrli": XBRLI_NS, "gen": gen_ns}
-        schema = etree.Element(f"{{{XSD_NS}}}schema", nsmap=nsmap)
+        schema = etree.element(f"{{{XSD_NS}}}schema", nsmap=nsmap)
         schema.set("targetNamespace", gen_ns)
         schema.set("elementFormDefault", "qualified")
 
@@ -165,9 +165,9 @@ class TaxonomyEmitter:
         return path
 
     @staticmethod
-    def _append_facet(restriction: etree._Element, facet_xml: str) -> None:
+    def _append_facet(restriction: etree.Element, facet_xml: str) -> None:
         source = etree.fromstring(facet_xml.encode("utf-8"))
-        local = etree.QName(source).localname
+        local = etree.localname(source)
         facet = etree.SubElement(restriction, f"{{{XSD_NS}}}{local}")
         for name, value in source.attrib.items():
             facet.set(name, value)
@@ -205,7 +205,7 @@ class InstanceEmitter:
         if any(value.is_nil for value in values):
             nsmap["xsi"] = XSI_NS
 
-        root = etree.Element(f"{{{XBRLI_NS}}}xbrl", nsmap=nsmap)
+        root = etree.element(f"{{{XBRLI_NS}}}xbrl", nsmap=nsmap)
 
         path = instance_path(out, ref, key, t)
         schema_ref = etree.SubElement(root, f"{{{LINK_NS}}}schemaRef")
@@ -230,7 +230,7 @@ class InstanceEmitter:
         return Path(os.path.relpath(taxonomy, start=path.parent)).as_posix()
 
     @staticmethod
-    def _append_context(root: etree._Element) -> None:
+    def _append_context(root: etree.Element) -> None:
         context = etree.SubElement(root, f"{{{XBRLI_NS}}}context")
         context.set("id", _CONTEXT_ID)
         entity = etree.SubElement(context, f"{{{XBRLI_NS}}}entity")
@@ -242,14 +242,14 @@ class InstanceEmitter:
         instant.text = _INSTANT
 
     @staticmethod
-    def _append_unit(root: etree._Element) -> None:
+    def _append_unit(root: etree.Element) -> None:
         unit = etree.SubElement(root, f"{{{XBRLI_NS}}}unit")
         unit.set("id", _UNIT_ID)
         measure = etree.SubElement(unit, f"{{{XBRLI_NS}}}measure")
         measure.text = _PURE_MEASURE
 
     @staticmethod
-    def _append_fact(root: etree._Element, gen_ns: str, t: ExtractedType, value: ExtractedValue) -> None:
+    def _append_fact(root: etree.Element, gen_ns: str, t: ExtractedType, value: ExtractedValue) -> None:
         fact = etree.SubElement(root, f"{{{gen_ns}}}{CONCEPT_NAME}")
         fact.set("contextRef", _CONTEXT_ID)
         if t.numeric:
@@ -360,23 +360,28 @@ class IndexEmitter:
 
     def _write_testcase(self, path: Path, accum: _TestcaseAccum) -> None:
         nsmap = {None: CONFORMANCE_NS, "xmlSchema": XML_SCHEMA_ERROR_NS}
-        root = etree.Element(f"{{{CONFORMANCE_NS}}}testcase", nsmap=nsmap)
+        root = etree.element(f"{{{CONFORMANCE_NS}}}testcase", nsmap=nsmap)
         root.set("name", accum.name)
         root.set("owner", _TESTCASE_OWNER)
         header = (
             f"{_GENERATED_NOTE} Type key: {accum.name}; "
             f"taxonomy: taxonomies/{accum.taxonomy}; variations: {len(accum.records)}."
         )
-        root.addprevious(etree.Comment(_safe_comment(header)))
         for record in accum.records:
             self._append_variation(root, record)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(
-            etree.tostring(etree.ElementTree(root), pretty_print=True, xml_declaration=True, encoding="UTF-8")
+            etree.tostring(
+                etree.ElementTree(root),
+                pretty_print=True,
+                xml_declaration=True,
+                encoding="UTF-8",
+                preceding_comment=_safe_comment(header),
+            )
         )
 
     @staticmethod
-    def _append_variation(root: etree._Element, record: _VariationRecord) -> None:
+    def _append_variation(root: etree.Element, record: _VariationRecord) -> None:
         provenance = (
             f"{record.contributor} {record.group} | "
             f"source instance: {record.source_instance} | "
@@ -404,11 +409,16 @@ class IndexEmitter:
             f"{total_variations} variations. Each <testcase> file carries per-variation "
             "comments naming the XSTS instance/schema it was generated from."
         )
-        root.addprevious(etree.Comment(_safe_comment(header)))
         for uri in sorted(self._testcases):
             testcase = etree.SubElement(root, "testcase")
             testcase.set("uri", uri)
         out.mkdir(parents=True, exist_ok=True)
         (out / INDEX_FILENAME).write_bytes(
-            etree.tostring(etree.ElementTree(root), pretty_print=True, xml_declaration=True, encoding="UTF-8")
+            etree.tostring(
+                etree.ElementTree(root),
+                pretty_print=True,
+                xml_declaration=True,
+                encoding="UTF-8",
+                preceding_comment=_safe_comment(header),
+            )
         )
