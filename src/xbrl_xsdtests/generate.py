@@ -118,8 +118,10 @@ class Generator:
                 self._groups += 1
                 if isinstance(unit, SkipRecord):
                     self._manifest.add(unit)
+                    print(f"[SKIP] {self._groups}\t from {source.member}\t - {unit.group}")
                 else:
                     self._process_group(unit)
+                    print(f"[DONE] {self._groups}\t from {source.member}\t - {unit.group.name}")
         testcase_paths = self._index.write(self._out)
         manifest_path = self._manifest.write(self._out)
         summary = self._manifest.summary()
